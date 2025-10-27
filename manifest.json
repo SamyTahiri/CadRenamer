@@ -7,7 +7,7 @@
   "host_permissions": ["https://techforkids.onshape.com/*"],
   "content_scripts": [
     {
-      "matches": ["https://cad.onshape.com/*"],
+      "matches": ["https://techforkids.onshape.com/*"],
       "js": ["content.js"],
       "run_at": "document_end"
     }
