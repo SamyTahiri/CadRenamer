@@ -4,15 +4,13 @@
     let partCounter = {};
     let documentLetter = null;
     let isEnabled = true;
+    let observerActive = false;
 
-    // Enhanced logging
     console.log('=== Onshape Auto-Renamer Started ===');
 
     function extractLetterFromDocName() {
-        // Try multiple ways to find the document name
         console.log('Trying to extract document letter...');
 
-        // Method 1: Title tag
         const title = document.title;
         console.log('Document title:', title);
         let match = title.match(/\d+-([A-Z])\d+-/i);
@@ -21,14 +19,10 @@
             return match[1].toUpperCase();
         }
 
-        // Method 2: Various selectors
         const selectors = [
-            '[data-test-id="document-name"]',
             '.document-name',
             '.document-title',
-            'h1',
-            '[class*="document"]',
-            '[class*="title"]'
+            'h1'
         ];
 
         for (const selector of selectors) {
@@ -64,48 +58,29 @@
 
         console.log('Scanning existing parts...');
 
-        // Try multiple selectors for parts
-        const partSelectors = [
-            '[data-test-id="parts-table-row"]',
-            '.part-row',
-            '[class*="part"]',
-            'tbody tr'
-        ];
-
-        let partElements = [];
-        for (const selector of partSelectors) {
-            partElements = document.querySelectorAll(selector);
-            if (partElements.length > 0) {
-                console.log(`Found ${partElements.length} parts using selector: ${selector}`);
-                break;
-            }
-        }
-
-        if (partElements.length === 0) {
-            console.log('No parts found yet');
+        const partList = document.querySelector('.part-list-container');
+        if (!partList) {
+            console.log('Part list container not found');
             return;
         }
 
+        const partItems = partList.querySelectorAll('.os-selectable-item');
+        console.log(`Found ${partItems.length} part items`);
+
         let maxNum = 0;
-        partElements.forEach((el, index) => {
-            const text = el.textContent;
-            console.log(`Part ${index + 1} text:`, text.substring(0, 100));
+        partItems.forEach((item, index) => {
+            const nameEl = item.querySelector('.os-selectable-item-body-text') ||
+                item.querySelector('.os-list-item-label');
+            if (nameEl) {
+                const name = nameEl.textContent.trim();
+                console.log(`Part ${index + 1}: "${name}"`);
 
-            // Try to find part names
-            const nameSelectors = ['.part-name', '[class*="name"]', 'td', 'div'];
-            for (const sel of nameSelectors) {
-                const nameEl = el.querySelector(sel);
-                if (nameEl) {
-                    const name = nameEl.textContent.trim();
-                    console.log(`  Checking name: "${name}"`);
-
-                    const pattern = new RegExp(`^${letter}(\\d+)$`, 'i');
-                    const match = name.match(pattern);
-                    if (match) {
-                        const num = parseInt(match[1], 10);
-                        console.log(`  Found existing part: ${name} (number: ${num})`);
-                        if (num > maxNum) maxNum = num;
-                    }
+                const pattern = new RegExp(`^${letter}(\\d+)$`, 'i');
+                const match = name.match(pattern);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    console.log(`  Found existing part: ${name} (number: ${num})`);
+                    if (num > maxNum) maxNum = num;
                 }
             }
         });
@@ -114,117 +89,106 @@
         console.log(`Counter initialized to: ${maxNum}`);
     }
 
-    function renamePart(partElement, newName) {
+    function renamePart(partItem, newName) {
         console.log('Attempting to rename part to:', newName);
 
-        // Try to find the name element
-        const nameSelectors = ['.part-name', '[class*="name"]', 'input', 'td', 'div'];
-        let nameElement = null;
+        const nameEl = partItem.querySelector('.os-selectable-item-body-text') ||
+            partItem.querySelector('.os-list-item-label');
 
-        for (const selector of nameSelectors) {
-            nameElement = partElement.querySelector(selector);
-            if (nameElement) {
-                console.log('Found name element with selector:', selector);
-                break;
-            }
-        }
-
-        if (!nameElement) {
+        if (!nameEl) {
             console.log('✗ Could not find name element');
             return;
         }
 
-        console.log('Current name:', nameElement.textContent);
+        console.log('Current name:', nameEl.textContent);
 
-        // Try double-click to edit
-        console.log('Simulating double-click...');
-        nameElement.dispatchEvent(new MouseEvent('dblclick', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-        }));
-
-        // Also try single click
-        nameElement.click();
+        // Click to select the item first
+        partItem.click();
 
         setTimeout(() => {
-            // Look for input field
-            const input = partElement.querySelector('input[type="text"]') ||
-                partElement.querySelector('input') ||
-                document.querySelector('input:focus');
+            // Double-click to rename
+            nameEl.dispatchEvent(new MouseEvent('dblclick', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            }));
 
-            if (input) {
-                console.log('✓ Found input field');
-                console.log('Setting value to:', newName);
+            setTimeout(() => {
+                const input = document.querySelector('input[type="text"]:focus') ||
+                    partItem.querySelector('input[type="text"]') ||
+                    document.querySelector('.os-selectable-item input');
 
-                input.focus();
-                input.value = newName;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
+                if (input) {
+                    console.log('✓ Found input field');
+                    input.focus();
+                    input.select();
+                    input.value = newName;
 
-                // Try Enter key
-                input.dispatchEvent(new KeyboardEvent('keydown', {
-                    key: 'Enter',
-                    code: 'Enter',
-                    keyCode: 13,
-                    bubbles: true
-                }));
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
 
-                // Try blur
-                setTimeout(() => {
-                    input.blur();
-                    console.log('Rename attempt complete');
-                }, 50);
-            } else {
-                console.log('✗ Could not find input field');
-                console.log('Available inputs:', document.querySelectorAll('input').length);
-            }
-        }, 200);
+                    input.dispatchEvent(new KeyboardEvent('keydown', {
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        bubbles: true,
+                        cancelable: true
+                    }));
+
+                    input.dispatchEvent(new KeyboardEvent('keypress', {
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        bubbles: true,
+                        cancelable: true
+                    }));
+
+                    setTimeout(() => {
+                        input.blur();
+                        console.log('✓ Rename complete');
+                    }, 50);
+                } else {
+                    console.log('✗ Could not find input field');
+                    console.log('Focused element:', document.activeElement);
+                }
+            }, 300);
+        }, 100);
     }
 
     function checkForNewParts() {
         if (!isEnabled) {
-            console.log('Extension is disabled');
             return;
         }
 
         if (!documentLetter) {
-            console.log('No document letter detected yet');
             return;
         }
 
-        // Try multiple selectors
-        const partSelectors = [
-            '[data-test-id="parts-table-row"]',
-            '.part-row',
-            '[class*="part"]',
-            'tbody tr'
-        ];
+        const partList = document.querySelector('.part-list-container');
+        if (!partList) return;
 
-        let partElements = [];
-        for (const selector of partSelectors) {
-            partElements = document.querySelectorAll(selector);
-            if (partElements.length > 0) break;
-        }
+        const partItems = partList.querySelectorAll('.os-selectable-item');
 
-        if (partElements.length === 0) return;
+        partItems.forEach(item => {
+            const nameEl = item.querySelector('.os-selectable-item-body-text') ||
+                item.querySelector('.os-list-item-label');
 
-        partElements.forEach(el => {
-            const allText = el.textContent;
+            if (nameEl) {
+                const currentName = nameEl.textContent.trim();
 
-            // Look for default part names
-            const defaultPatterns = [
-                /Part\s*\d+/i,
-                /^Part\d+$/i,
-                /Partie\s*\d+/i  // French
-            ];
+                const defaultPatterns = [
+                    /^Part\s*\d+$/i,
+                    /^Partie\s*\d+$/i,
+                    /^Part$/i
+                ];
 
-            for (const pattern of defaultPatterns) {
-                if (pattern.test(allText)) {
-                    console.log('Found default part name:', allText.substring(0, 50));
-                    const newName = documentLetter + getNextPartNumber(documentLetter);
-                    renamePart(el, newName);
-                    break;
+                for (const pattern of defaultPatterns) {
+                    if (pattern.test(currentName)) {
+                        console.log('Found default part name:', currentName);
+                        const newName = documentLetter + getNextPartNumber(documentLetter);
+                        renamePart(item, newName);
+                        return;
+                    }
                 }
             }
         });
@@ -237,57 +201,44 @@
         if (documentLetter) {
             console.log('✓ Document letter:', documentLetter);
             scanExistingParts();
+            startMonitoring();
         } else {
             console.log('✗ Could not extract document letter');
-            console.log('Please check that document name follows pattern: XXXX-L000-name');
+            console.log('Document name should follow pattern: XXXX-L000-name');
+            setTimeout(init, 3000);
         }
     }
 
-    function waitForOnshape() {
-        console.log('Waiting for Onshape to load...');
+    function startMonitoring() {
+        if (observerActive) return;
 
-        // Check if parts table exists
-        const tableSelectors = [
-            '[data-test-id="parts-table"]',
-            '.parts-table',
-            'table',
-            '[class*="parts"]'
-        ];
-
-        let found = false;
-        for (const selector of tableSelectors) {
-            if (document.querySelector(selector)) {
-                console.log('✓ Found parts table with selector:', selector);
-                found = true;
-                break;
-            }
+        const partList = document.querySelector('.part-list-container');
+        if (!partList) {
+            console.log('Part list not ready, waiting...');
+            setTimeout(startMonitoring, 2000);
+            return;
         }
 
-        if (found) {
-            init();
+        console.log('✓ Starting monitoring');
+        observerActive = true;
 
-            // Watch for changes
-            const observer = new MutationObserver((mutations) => {
-                console.log('DOM changed, checking for new parts...');
-                checkForNewParts();
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                if (mutation.addedNodes.length > 0) {
+                    console.log('DOM changed, checking for new parts...');
+                    setTimeout(checkForNewParts, 500);
+                }
             });
+        });
 
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
+        observer.observe(partList, {
+            childList: true,
+            subtree: true
+        });
 
-            // Also check periodically
-            setInterval(() => {
-                console.log('Periodic check...');
-                checkForNewParts();
-            }, 3000);
-
-            console.log('✓ Monitoring started');
-        } else {
-            console.log('Parts table not found, retrying...');
-            setTimeout(waitForOnshape, 2000);
-        }
+        setInterval(() => {
+            checkForNewParts();
+        }, 3000);
     }
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -298,10 +249,11 @@
         }
     });
 
-    // Start when page loads
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', waitForOnshape);
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(init, 2000);
+        });
     } else {
-        waitForOnshape();
+        setTimeout(init, 2000);
     }
 })();
