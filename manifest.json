@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Onshape Part Auto-Renamer",
+  "version": "1.0",
+  "description": "Automatically renames parts in Onshape based on document naming convention",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://cad.onshape.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://cad.onshape.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  }
+}
