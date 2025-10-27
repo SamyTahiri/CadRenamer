@@ -4,7 +4,7 @@
   "version": "1.0",
   "description": "Automatically renames parts in Onshape based on document naming convention",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://cad.onshape.com/*"],
+  "host_permissions": ["https://techforkids.onshape.com/*"],
   "content_scripts": [
     {
       "matches": ["https://cad.onshape.com/*"],
