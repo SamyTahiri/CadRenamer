@@ -4,10 +4,10 @@
   "version": "1.0",
   "description": "Automatically renames parts in Onshape based on document naming convention",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://techforkids.onshape.com/*"],
+  "host_permissions": ["https://*.onshape.com/*"],
   "content_scripts": [
     {
-      "matches": ["https://techforkids.onshape.com/*"],
+      "matches": ["https://*.onshape.com/*"],
       "js": ["content.js"],
       "run_at": "document_end"
     }
