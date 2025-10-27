@@ -5,7 +5,7 @@
     let documentLetter = null;
     let isEnabled = true;
 
-    // Extract letter from document name (e.g., "3990-C000-intake" -> "C")
+    // Extract letter from document name
     function extractLetterFromDocName() {
         const docNameElement = document.querySelector('[data-test-id="document-name"]') ||
             document.querySelector('.document-name');
