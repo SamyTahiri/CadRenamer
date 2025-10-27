@@ -5,18 +5,46 @@
     let documentLetter = null;
     let isEnabled = true;
 
-    function extractLetterFromDocName() {
-        const docNameElement = document.querySelector('[data-test-id="document-name"]') ||
-            document.querySelector('.document-name') ||
-            document.querySelector('title');
+    // Enhanced logging
+    console.log('=== Onshape Auto-Renamer Started ===');
 
-        if (docNameElement) {
-            const docName = docNameElement.textContent.trim();
-            const match = docName.match(/\d+-([A-Z])\d+-/i);
-            if (match) {
-                return match[1].toUpperCase();
+    function extractLetterFromDocName() {
+        // Try multiple ways to find the document name
+        console.log('Trying to extract document letter...');
+
+        // Method 1: Title tag
+        const title = document.title;
+        console.log('Document title:', title);
+        let match = title.match(/\d+-([A-Z])\d+-/i);
+        if (match) {
+            console.log('✓ Found letter in title:', match[1]);
+            return match[1].toUpperCase();
+        }
+
+        // Method 2: Various selectors
+        const selectors = [
+            '[data-test-id="document-name"]',
+            '.document-name',
+            '.document-title',
+            'h1',
+            '[class*="document"]',
+            '[class*="title"]'
+        ];
+
+        for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+                const text = element.textContent.trim();
+                console.log(`Found element with selector "${selector}":`, text);
+                match = text.match(/\d+-([A-Z])\d+-/i);
+                if (match) {
+                    console.log('✓ Found letter:', match[1]);
+                    return match[1].toUpperCase();
+                }
             }
         }
+
+        console.log('✗ Could not find document letter');
         return null;
     }
 
@@ -25,113 +53,255 @@
             partCounter[letter] = 0;
         }
         partCounter[letter]++;
-        return String(partCounter[letter]).padStart(3, '0');
+        const num = String(partCounter[letter]).padStart(3, '0');
+        console.log(`Generated part number: ${letter}${num}`);
+        return num;
     }
 
     function scanExistingParts() {
         const letter = documentLetter;
         if (!letter) return;
 
-        const partElements = document.querySelectorAll('[data-test-id="parts-table-row"]');
-        let maxNum = 0;
+        console.log('Scanning existing parts...');
 
-        partElements.forEach(el => {
-            const nameEl = el.querySelector('.part-name');
-            if (nameEl) {
-                const name = nameEl.textContent.trim();
-                const pattern = new RegExp(`^${letter}(\\d+)$`, 'i');
-                const match = name.match(pattern);
-                if (match) {
-                    const num = parseInt(match[1], 10);
-                    if (num > maxNum) maxNum = num;
+        // Try multiple selectors for parts
+        const partSelectors = [
+            '[data-test-id="parts-table-row"]',
+            '.part-row',
+            '[class*="part"]',
+            'tbody tr'
+        ];
+
+        let partElements = [];
+        for (const selector of partSelectors) {
+            partElements = document.querySelectorAll(selector);
+            if (partElements.length > 0) {
+                console.log(`Found ${partElements.length} parts using selector: ${selector}`);
+                break;
+            }
+        }
+
+        if (partElements.length === 0) {
+            console.log('No parts found yet');
+            return;
+        }
+
+        let maxNum = 0;
+        partElements.forEach((el, index) => {
+            const text = el.textContent;
+            console.log(`Part ${index + 1} text:`, text.substring(0, 100));
+
+            // Try to find part names
+            const nameSelectors = ['.part-name', '[class*="name"]', 'td', 'div'];
+            for (const sel of nameSelectors) {
+                const nameEl = el.querySelector(sel);
+                if (nameEl) {
+                    const name = nameEl.textContent.trim();
+                    console.log(`  Checking name: "${name}"`);
+
+                    const pattern = new RegExp(`^${letter}(\\d+)$`, 'i');
+                    const match = name.match(pattern);
+                    if (match) {
+                        const num = parseInt(match[1], 10);
+                        console.log(`  Found existing part: ${name} (number: ${num})`);
+                        if (num > maxNum) maxNum = num;
+                    }
                 }
             }
         });
 
         partCounter[letter] = maxNum;
+        console.log(`Counter initialized to: ${maxNum}`);
     }
 
     function renamePart(partElement, newName) {
-        const nameElement = partElement.querySelector('.part-name');
-        if (!nameElement) return;
+        console.log('Attempting to rename part to:', newName);
 
+        // Try to find the name element
+        const nameSelectors = ['.part-name', '[class*="name"]', 'input', 'td', 'div'];
+        let nameElement = null;
+
+        for (const selector of nameSelectors) {
+            nameElement = partElement.querySelector(selector);
+            if (nameElement) {
+                console.log('Found name element with selector:', selector);
+                break;
+            }
+        }
+
+        if (!nameElement) {
+            console.log('✗ Could not find name element');
+            return;
+        }
+
+        console.log('Current name:', nameElement.textContent);
+
+        // Try double-click to edit
+        console.log('Simulating double-click...');
         nameElement.dispatchEvent(new MouseEvent('dblclick', {
             bubbles: true,
             cancelable: true,
             view: window
         }));
 
+        // Also try single click
+        nameElement.click();
+
         setTimeout(() => {
-            const input = partElement.querySelector('input[type="text"]');
+            // Look for input field
+            const input = partElement.querySelector('input[type="text"]') ||
+                partElement.querySelector('input') ||
+                document.querySelector('input:focus');
+
             if (input) {
+                console.log('✓ Found input field');
+                console.log('Setting value to:', newName);
+
+                input.focus();
                 input.value = newName;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                // Try Enter key
                 input.dispatchEvent(new KeyboardEvent('keydown', {
                     key: 'Enter',
                     code: 'Enter',
                     keyCode: 13,
                     bubbles: true
                 }));
+
+                // Try blur
+                setTimeout(() => {
+                    input.blur();
+                    console.log('Rename attempt complete');
+                }, 50);
+            } else {
+                console.log('✗ Could not find input field');
+                console.log('Available inputs:', document.querySelectorAll('input').length);
             }
-        }, 100);
+        }, 200);
     }
 
     function checkForNewParts() {
-        if (!isEnabled || !documentLetter) return;
+        if (!isEnabled) {
+            console.log('Extension is disabled');
+            return;
+        }
 
-        const partElements = document.querySelectorAll('[data-test-id="parts-table-row"]');
+        if (!documentLetter) {
+            console.log('No document letter detected yet');
+            return;
+        }
+
+        // Try multiple selectors
+        const partSelectors = [
+            '[data-test-id="parts-table-row"]',
+            '.part-row',
+            '[class*="part"]',
+            'tbody tr'
+        ];
+
+        let partElements = [];
+        for (const selector of partSelectors) {
+            partElements = document.querySelectorAll(selector);
+            if (partElements.length > 0) break;
+        }
+
+        if (partElements.length === 0) return;
 
         partElements.forEach(el => {
-            const nameEl = el.querySelector('.part-name');
-            if (nameEl) {
-                const currentName = nameEl.textContent.trim();
+            const allText = el.textContent;
 
-                if (/^Part\s*\d+$/i.test(currentName)) {
+            // Look for default part names
+            const defaultPatterns = [
+                /Part\s*\d+/i,
+                /^Part\d+$/i,
+                /Partie\s*\d+/i  // French
+            ];
+
+            for (const pattern of defaultPatterns) {
+                if (pattern.test(allText)) {
+                    console.log('Found default part name:', allText.substring(0, 50));
                     const newName = documentLetter + getNextPartNumber(documentLetter);
-                    console.log(`Renaming "${currentName}" to "${newName}"`);
                     renamePart(el, newName);
+                    break;
                 }
             }
         });
     }
 
     function init() {
+        console.log('Initializing...');
         documentLetter = extractLetterFromDocName();
+
         if (documentLetter) {
-            console.log(`Document letter detected: ${documentLetter}`);
+            console.log('✓ Document letter:', documentLetter);
             scanExistingParts();
-            console.log(`Starting counter at: ${partCounter[documentLetter]}`);
+        } else {
+            console.log('✗ Could not extract document letter');
+            console.log('Please check that document name follows pattern: XXXX-L000-name');
         }
     }
 
     function waitForOnshape() {
-        if (document.querySelector('[data-test-id="parts-table"]')) {
+        console.log('Waiting for Onshape to load...');
+
+        // Check if parts table exists
+        const tableSelectors = [
+            '[data-test-id="parts-table"]',
+            '.parts-table',
+            'table',
+            '[class*="parts"]'
+        ];
+
+        let found = false;
+        for (const selector of tableSelectors) {
+            if (document.querySelector(selector)) {
+                console.log('✓ Found parts table with selector:', selector);
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
             init();
 
+            // Watch for changes
             const observer = new MutationObserver((mutations) => {
+                console.log('DOM changed, checking for new parts...');
                 checkForNewParts();
             });
 
-            const partsTable = document.querySelector('[data-test-id="parts-table"]');
-            if (partsTable) {
-                observer.observe(partsTable, {
-                    childList: true,
-                    subtree: true
-                });
-            }
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
 
-            setInterval(checkForNewParts, 2000);
+            // Also check periodically
+            setInterval(() => {
+                console.log('Periodic check...');
+                checkForNewParts();
+            }, 3000);
+
+            console.log('✓ Monitoring started');
         } else {
-            setTimeout(waitForOnshape, 1000);
+            console.log('Parts table not found, retrying...');
+            setTimeout(waitForOnshape, 2000);
         }
     }
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === 'toggle') {
             isEnabled = request.enabled;
+            console.log('Extension toggled:', isEnabled ? 'ON' : 'OFF');
             sendResponse({ success: true });
         }
     });
 
-    waitForOnshape();
+    // Start when page loads
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', waitForOnshape);
+    } else {
+        waitForOnshape();
+    }
 })();
