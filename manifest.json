@@ -1,18 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Onshape Part Auto-Renamer",
-  "version": "1.0",
-  "description": "Automatically renames parts in Onshape based on document naming convention",
+  "name": "Onshape Fast Part Renamer",
+  "version": "2.0",
+  "description": "Instantly rename all parts in Onshape with sequential numbering",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["https://*.onshape.com/*"],
-  "content_scripts": [
-    {
-      "matches": ["https://*.onshape.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "Rename Parts (Fast)"
   }
 }

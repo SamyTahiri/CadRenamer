@@ -110,9 +110,20 @@ async function scanAndRenameDocument(documentId) {
 
     // Get document info
     const docPath = `/api/documents/${documentId}`;
+    console.log('Fetching document info...');
     const docInfo = await apiRequest('GET', docPath);
 
+    console.log('Full API Response:', JSON.stringify(docInfo, null, 2));
     console.log(`Document name: ${docInfo.name}`);
+
+    if (!docInfo.name) {
+      console.error('❌ Could not get document name. Check API permissions.');
+      console.log('Possible issues:');
+      console.log('1. API keys might be incorrect');
+      console.log('2. Document might not be accessible with these credentials');
+      console.log('3. API permissions might not include "Read documents"');
+      return;
+    }
 
     const letter = extractLetter(docInfo.name);
     if (!letter) {
